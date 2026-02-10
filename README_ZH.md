@@ -62,6 +62,45 @@ YONG 消灭这种浪费：
 
 **声明意图，编译器物化。**
 
+## 架构
+
+```
+                          ┌─────────────────────────────────────┐
+                          │         人类（自然语言描述）          │
+                          └──────────────┬──────────────────────┘
+                                         │
+                                         ▼
+                          ┌─────────────────────────────────────┐
+                          │   VGO Brain 2.0（1.09亿参数 SNN）    │
+                          │   自然语言 → YONG 代码               │
+                          └──────────────┬──────────────────────┘
+                                         │
+                                         ▼
+                          ┌─────────────────────────────────────┐
+                          │         .yong 源文件                 │
+                          │    （30 tokens，声明式意图）          │
+                          └──────────────┬──────────────────────┘
+                                         │
+                    ┌────────────────────┼────────────────────┐
+                    ▼                    ▼                    ▼
+             ┌────────────┐     ┌──────────────┐     ┌──────────────┐
+             │   词法分析   │     │   语法分析    │     │   IR 生成    │
+             │  (Lexer)    │ ──▶ │   (AST)      │ ──▶ │ (类型化 IR)  │
+             └────────────┘     └──────────────┘     └──────┬───────┘
+                                                            │
+                                         ┌──────────────────┼──────────────────┐
+                                         ▼                                     ▼
+                              ┌─────────────────────┐             ┌─────────────────────┐
+                              │    Web 后端          │             │    RTL 后端          │
+                              │  HTML+CSS+JS+API+DB │             │  Verilog → Yosys    │
+                              │  （App 方言）        │             │  → FPGA/ASIC        │
+                              └─────────────────────┘             │  （Hardware 方言）   │
+                                                                  └─────────────────────┘
+```
+
+**5 级管线**: 词法分析 → 语法分析 → AST → 类型化 IR → 后端代码生成。
+同一份 `.yong` 文件可以编译为 Web 应用**或者**可综合硅片。
+
 ## 快速一览
 
 ### App 方言 — 30 个 Token 搞定全栈
@@ -151,24 +190,49 @@ network MNIST {
 | 代码行数 | 900+（CUDA/Verilog）| **30（YONG）** |
 | FPGA 比特流 | N/A | **132 KB** |
 
+> 📊 **完整测量方法、硬件规格和复现脚本**: [benchmarks/README.md](benchmarks/README.md)
+
+## AI 同行评审（2026年2月）
+
+我们把 YONG 代码发给了 5 个主流 AI 模型——**它们之前从未见过 YONG**。
+
+**第一轮** — 纯代码，零上下文：**5/5 立即理解。**
+
+**第二轮** — 完整 README 审阅：
+
+| AI | 核心评价 |
+|---|---|
+| **Claude** | *"Token 经济学论点非常准确。你不是在争夺人类心智——你是在争夺 AI 的 Token 预算。完全不同的赛道。"* |
+| **DeepSeek** | *"出色的、必要的、高风险/高回报的思想实验变成了现实。"* |
+| **Gemini** | *"YONG 看起来像一个完美的中间表示（IR）——人类描述，AI 生成 YONG，然后编译到 Rust、Go 或 TypeScript。"* |
+| **ChatGPT 5.2** | *"README 不是画饼——有具体的状态声明。这是正确的可信度信号。"* |
+| **Grok** | *"瓶颈不再是晶体管或瓦特——而是 Token 和不必要的语法。"* |
+
+这些 AI 就是 YONG 的目标用户。它们的即时理解验证了核心设计论点。
+
 ## 项目状态
 
 | 组件 | 状态 |
 |------|------|
-| 语言规范 v4.2 | ✅ 完成 |
+| 语言规范 v4.3 | ✅ 完成（v4.2 核心 + v4.3 补充）|
 | 编译器规范 v1.0 | ✅ 完成 |
 | 解析器（Lexer → AST → IR）| ✅ 运行中（822 行）|
 | 原生引擎（.yong → GUI）| ✅ 运行中 |
 | Verilog 后端（.yong → RTL）| ✅ 运行中（47KB 输出，Yosys 验证）|
 | VGO Brain 2.0（自然语言 → YONG）| ✅ 运行中（109M 参数 SNN）|
 | FPGA 综合（iCE40）| ✅ 验证通过（132KB 比特流）|
+| VSCode 扩展 | ✅ 语法高亮 |
+| 微调数据集 | 🔄 16 个种子对（目标: 1000+）|
+| 一致性测试 | 🔄 31 个测试用例 |
 
 ## 文档
 
 | 文档 | English | 中文 |
 |------|---------|------|
 | 语言规范 | [spec/language-spec.md](spec/language-spec.md) | [spec-zh/YONG语言规范.md](spec-zh/YONG语言规范.md) |
+| 规范补充 v4.3 | [spec/language-spec-addendum-v4.3.md](spec/language-spec-addendum-v4.3.md) | [spec-zh/YONG语言规范补充v4.3.md](spec-zh/YONG语言规范补充v4.3.md) |
 | 编译器规范 | [spec/compiler-spec.md](spec/compiler-spec.md) | [spec-zh/YONG编译器规范.md](spec-zh/YONG编译器规范.md) |
+| 基准测试方法论 | [benchmarks/README.md](benchmarks/README.md) | — |
 
 ## 代码示例
 
@@ -178,6 +242,16 @@ network MNIST {
 - [`todo-app.yong`](examples/todo-app.yong) — 全栈 Todo App（30 tokens）
 - [`snn-mnist.yong`](examples/snn-mnist.yong) — MNIST 分类器 SNN 芯片
 - [`auth-api.yong`](examples/auth-api.yong) — 带 RBAC 的认证 API
+- [`error-handling.yong`](examples/error-handling.yong) — 铁路导向错误处理
+- [`blog-engine.yong`](examples/blog-engine.yong) — 完整 CMS（文章、评论、标签、认证、搜索）
+- [`ecommerce-api.yong`](examples/ecommerce-api.yong) — 电商 API（状态机、事务、Webhook）
+- [`snn-speech.yong`](examples/snn-speech.yong) — SNN 语音识别（储备池计算）
+
+## 工具链
+
+- **VSCode 扩展**: [vscode-yong/](vscode-yong/) — `.yong` 文件语法高亮
+- **微调数据集**: [datasets/](datasets/) — 自然语言→YONG 训练对
+- **一致性测试**: [tests/](tests/) — 31 个金标测试用例
 
 ## 参与贡献
 
