@@ -1,0 +1,30 @@
+{
+  "name": "yong-lang",
+  "displayName": "YONG Language",
+  "description": "Syntax highlighting for the YONG programming language — the CUDA Killer",
+  "version": "0.1.0",
+  "publisher": "yongnian",
+  "engines": { "vscode": "^1.80.0" },
+  "categories": ["Programming Languages"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/huxinran2025-hash/YongnianLang"
+  },
+  "contributes": {
+    "languages": [
+      {
+        "id": "yong",
+        "aliases": ["YONG", "yong", "YongnianLang"],
+        "extensions": [".yong"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "yong",
+        "scopeName": "source.yong",
+        "path": "./syntaxes/yong.tmLanguage.json"
+      }
+    ]
+  }
+}

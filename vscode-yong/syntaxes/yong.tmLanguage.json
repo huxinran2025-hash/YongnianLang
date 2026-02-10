@@ -1,0 +1,169 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "YONG",
+  "scopeName": "source.yong",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#decorators" },
+    { "include": "#keywords" },
+    { "include": "#types" },
+    { "include": "#strings" },
+    { "include": "#numbers" },
+    { "include": "#operators" },
+    { "include": "#functions" },
+    { "include": "#variables" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.yong",
+          "match": "//.*$"
+        },
+        {
+          "name": "comment.block.yong",
+          "begin": "/\\*",
+          "end": "\\*/"
+        }
+      ]
+    },
+    "decorators": {
+      "patterns": [
+        {
+          "name": "entity.name.function.decorator.yong",
+          "match": "@(api|db|app|auth|error|retry|middleware|use|validate|raw|webhook|state_machine|transaction|plugin|yong|unique|ref|hash|derive|markdown|url|many_to_many|auto_update)\\b"
+        },
+        {
+          "name": "entity.name.function.decorator.custom.yong",
+          "match": "@[a-zA-Z_][a-zA-Z0-9_]*"
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.yong",
+          "match": "\\b(if|else|match|return|for|while|in)\\b"
+        },
+        {
+          "name": "keyword.declaration.yong",
+          "match": "\\b(fn|struct|enum|type|network|layer|connect|config|component|state|view|let|const|import)\\b"
+        },
+        {
+          "name": "keyword.other.yong",
+          "match": "\\b(with|stdp|lif|bram|enable|disable|true|false|null|none|some|ok|err)\\b"
+        },
+        {
+          "name": "keyword.operator.http.yong",
+          "match": "\\b(GET|POST|PUT|DELETE|PATCH)\\b"
+        },
+        {
+          "name": "keyword.other.snn.yong",
+          "match": "\\b(input|output|hidden|reservoir|threshold|leak|recurrent|connectivity|exc_inh_ratio|lateral_inhibition|weight_storage|wta_mode|homeostasis|power_gating|target|clock|decode|spike_count|train|epochs|learning_rate|augment|encoding|rate|event|time_window|delay|uniform|kernel|stride|max_pool|window)\\b"
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "name": "support.type.primitive.yong",
+          "match": "\\b(int|float|bool|string|text|uid|timestamp|void|list|map|set)\\b"
+        },
+        {
+          "name": "support.type.unit.yong",
+          "match": "\\b(Money|Time|Energy|Result|Paginated|File|XML)\\b"
+        },
+        {
+          "name": "support.type.unit-param.yong",
+          "match": "<(ms|s|us|ns|pJ|mJ|nJ|CNY|USD|EUR|JPY)>"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.yong",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.yong",
+              "match": "\\\\."
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.single.yong",
+          "begin": "'",
+          "end": "'",
+          "patterns": [
+            {
+              "name": "constant.character.escape.yong",
+              "match": "\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.yong",
+          "match": "\\b[0-9]+(\\.[0-9]+)?\\b"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.pipe.yong",
+          "match": "\\|>"
+        },
+        {
+          "name": "keyword.operator.pipe-error.yong",
+          "match": "\\|!"
+        },
+        {
+          "name": "keyword.operator.pipe-unwrap.yong",
+          "match": "\\|\\?"
+        },
+        {
+          "name": "keyword.operator.pipe-recover.yong",
+          "match": "\\|recover\\b"
+        },
+        {
+          "name": "keyword.operator.arrow.yong",
+          "match": "->|=>"
+        },
+        {
+          "name": "keyword.operator.comparison.yong",
+          "match": "==|!=|<=|>=|<|>"
+        },
+        {
+          "name": "keyword.operator.assignment.yong",
+          "match": "="
+        }
+      ]
+    },
+    "functions": {
+      "patterns": [
+        {
+          "name": "entity.name.function.yong",
+          "match": "\\b(db|auth|config|env|now|emit|broadcast|query|merge|save|validate|delete|include|where|where_if|order_by|paginate|limit|full_text_search|full_text_search_if|to_rss|slugify|truncate|transition|assert|send|check_rate|verify_password|generate_jwt|not_found|bad_request|too_many_requests)\\b"
+        }
+      ]
+    },
+    "variables": {
+      "patterns": [
+        {
+          "name": "variable.other.yong",
+          "match": "\\b[a-z_][a-zA-Z0-9_]*\\b"
+        },
+        {
+          "name": "entity.name.type.yong",
+          "match": "\\b[A-Z][a-zA-Z0-9_]*\\b"
+        }
+      ]
+    }
+  }
+}
