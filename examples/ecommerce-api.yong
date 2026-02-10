@@ -1,0 +1,152 @@
+// YONG E-Commerce API — Complex Business Logic Example
+// Demonstrates: transactions, state machines, event-driven, 3rd-party integration
+
+// --- Core Models ---
+
+@db(table="products")
+struct Product {
+    id: uid
+    name: string @validate(min=1, max=200)
+    price: Money<CNY> @validate(min=0.01)
+    stock: int @validate(min=0)
+    category: string
+    images: list[string] @url
+    active: bool = true
+}
+
+@db(table="carts")
+struct Cart {
+    id: uid
+    user_id: uid @ref(User)
+    items: list[CartItem]
+    expires_at: timestamp = now() + 24h  // unit-safe duration
+}
+
+struct CartItem {
+    product_id: uid @ref(Product)
+    quantity: int @validate(min=1, max=99)
+    price_snapshot: Money<CNY>  // price at time of adding
+}
+
+@db(table="orders")
+struct Order {
+    id: uid
+    user_id: uid @ref(User)
+    items: list[OrderItem]
+    subtotal: Money<CNY>
+    discount: Money<CNY> = 0.00
+    shipping: Money<CNY>
+    total: Money<CNY>
+    status: OrderStatus = pending
+    payment_id: string?
+    address: Address
+    created_at: timestamp = now()
+}
+
+// --- State Machine ---
+// Compiler enforces valid transitions at compile time
+
+@state_machine
+enum OrderStatus {
+    pending   -> [paid, cancelled]
+    paid      -> [processing, refunded]
+    processing -> [shipped, refunded]
+    shipped   -> [delivered, returned]
+    delivered -> [returned]
+    cancelled -> []
+    refunded  -> []
+    returned  -> [refunded]
+}
+
+// --- Cart Operations ---
+
+@api(POST, "/cart/add")
+@auth
+fn add_to_cart(product_id: uid, quantity: int = 1) -> Cart {
+    return db.products.find(product_id)
+        |? not_found("Product not found")
+        |> check_stock(quantity)
+        |> snapshot_price
+        |> add_to_user_cart(auth.user.id)
+        |> save
+}
+
+// --- Checkout with Transaction ---
+
+@api(POST, "/checkout")
+@auth
+@transaction  // all-or-nothing: if any step fails, everything rolls back
+fn checkout(address: Address, coupon_code: string?) -> Order {
+    return get_user_cart(auth.user.id)
+        |? bad_request("Cart is empty")
+        |> lock_inventory           // reserve stock
+        |> apply_coupon(coupon_code) // may fail if expired/invalid
+        |> calculate_shipping(address)
+        |> create_order(auth.user.id, address)
+        |> initiate_payment         // calls Stripe/Alipay
+        |> clear_cart(auth.user.id)
+        |> emit("order.created")    // triggers email, analytics, etc.
+        |! rollback_inventory       // on ANY error, release stock
+}
+
+// --- Payment Webhook ---
+
+@api(POST, "/webhooks/payment")
+@webhook(secret: config.payment_webhook_secret)
+fn handle_payment(event: PaymentEvent) -> void {
+    match event.type {
+        "payment.success" => {
+            db.orders.find_by(payment_id: event.payment_id)
+                |> transition(status: paid)     // state machine validates
+                |> save
+                |> emit("order.paid")
+        }
+        "payment.failed" => {
+            db.orders.find_by(payment_id: event.payment_id)
+                |> transition(status: cancelled)
+                |> save
+                |> rollback_inventory
+                |> emit("order.payment_failed")
+        }
+    }
+}
+
+// --- 3rd Party Integration (Escape Hatch) ---
+
+@raw(target: "javascript")  // YONG escape hatch for platform-specific code
+fn initiate_payment(order: Order) -> Result<Order, PaymentError> {
+    // Raw JS when YONG abstractions don't cover a specific SDK
+    const stripe = require('stripe')(process.env.STRIPE_KEY);
+    const session = await stripe.checkout.sessions.create({
+        line_items: order.items.map(i => ({
+            price_data: { currency: 'cny', unit_amount: i.price * 100 },
+            quantity: i.quantity
+        })),
+        mode: 'payment',
+        success_url: `${BASE_URL}/orders/${order.id}`,
+    });
+    return { ...order, payment_id: session.id };
+}
+
+// --- Admin Dashboard ---
+
+@api(GET, "/admin/orders")
+@auth(role: admin)
+fn list_orders(status: OrderStatus?, page: int = 1) -> Paginated<Order> {
+    return db.orders
+        |> where_if(status, status == status)
+        |> order_by(created_at, desc)
+        |> paginate(page, 50)
+        |> include(user, items.product)
+}
+
+@api(POST, "/admin/orders/{id}/ship")
+@auth(role: admin)
+fn ship_order(id: uid, tracking: string) -> Order {
+    return db.orders.find(id)
+        |> assert(status == processing, "Order must be in processing state")
+        |> transition(status: shipped)
+        |> merge({ tracking_number: tracking })
+        |> save
+        |> emit("order.shipped")  // triggers SMS/email to customer
+}
