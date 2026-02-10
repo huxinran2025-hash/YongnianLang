@@ -62,6 +62,45 @@ The compiler infers everything from declarations: database schema, HTTP routing,
 
 **Declare intent. Compiler materializes.**
 
+## Architecture
+
+```
+                          ┌─────────────────────────────────────┐
+                          │         Human (natural language)     │
+                          └──────────────┬──────────────────────┘
+                                         │
+                                         ▼
+                          ┌─────────────────────────────────────┐
+                          │   VGO Brain 2.0 (109M param SNN)    │
+                          │   Natural Language → YONG            │
+                          └──────────────┬──────────────────────┘
+                                         │
+                                         ▼
+                          ┌─────────────────────────────────────┐
+                          │         .yong source file            │
+                          │    (30 tokens, declarative intent)   │
+                          └──────────────┬──────────────────────┘
+                                         │
+                    ┌────────────────────┼────────────────────┐
+                    ▼                    ▼                    ▼
+             ┌────────────┐     ┌──────────────┐     ┌──────────────┐
+             │   Lexer     │     │   Parser      │     │   IR Gen     │
+             │  (tokens)   │ ──▶ │   (AST)       │ ──▶ │ (typed IR)   │
+             └────────────┘     └──────────────┘     └──────┬───────┘
+                                                            │
+                                         ┌──────────────────┼──────────────────┐
+                                         ▼                                     ▼
+                              ┌─────────────────────┐             ┌─────────────────────┐
+                              │    Web Backend       │             │    RTL Backend       │
+                              │  HTML+CSS+JS+API+DB  │             │  Verilog → Yosys     │
+                              │  (App Dialect)       │             │  → FPGA/ASIC         │
+                              └─────────────────────┘             │  (Hardware Dialect)  │
+                                                                  └─────────────────────┘
+```
+
+**5-stage pipeline**: Lexer → Parser → AST → Typed IR → Backend-specific code generation.
+Same `.yong` file can target web applications **or** synthesizable silicon.
+
 ## Quick Look
 
 ### App Dialect — Full-Stack in 30 Tokens
@@ -151,24 +190,49 @@ network MNIST {
 | Lines of code | 900+ (CUDA/Verilog) | **30 (YONG)** |
 | FPGA bitstream | N/A | **132 KB** |
 
+> 📊 **Full methodology, hardware specs, and reproduction scripts**: [benchmarks/README.md](benchmarks/README.md)
+
+## AI Peer Review (Feb 2026)
+
+We sent YONG code to 5 major AI models — **none had seen YONG before**.
+
+**Round 1** — Raw code, zero context: **5/5 understood instantly.**
+
+**Round 2** — Full README review:
+
+| AI | Key Quote |
+|---|---|
+| **Claude** | *"The token economics argument is spot-on. You're competing for AI token budgets — that's a different game entirely."* |
+| **DeepSeek** | *"A brilliant, necessary, high-risk/high-reward thought experiment made real."* |
+| **Gemini** | *"YONG seems like a perfect Intermediate Representation (IR) — human describes, AI generates YONG, then it compiles to Rust, Go, or TypeScript."* |
+| **ChatGPT 5.2** | *"README isn't just vapor — there are concrete status claims. That's the right kind of credibility signal."* |
+| **Grok** | *"The bottleneck is no longer transistors or watts — it's tokens and unnecessary syntax."* |
+
+These AIs are YONG's target users. Their instant comprehension validates the core design thesis.
+
 ## Project Status
 
 | Component | Status |
 |-----------|--------|
-| Language Specification v4.2 | ✅ Complete |
+| Language Specification v4.3 | ✅ Complete (v4.2 core + v4.3 addendum) |
 | Compiler Specification v1.0 | ✅ Complete |
 | Parser (Lexer → AST → IR) | ✅ Working (822 lines) |
 | Native Engine (.yong → GUI) | ✅ Working |
 | Verilog Backend (.yong → RTL) | ✅ Working (47KB output, Yosys verified) |
 | VGO Brain 2.0 (NL → YONG) | ✅ Working (109M param SNN) |
 | FPGA Synthesis (iCE40) | ✅ Verified (132KB bitstream) |
+| VSCode Extension | ✅ Syntax highlighting |
+| Fine-tuning Dataset | 🔄 16 seed pairs (target: 1000+) |
+| Conformance Tests | 🔄 31 test cases defined |
 
 ## Documentation
 
 | Document | English | 中文 |
 |----------|---------|------|
 | Language Specification | [spec/language-spec.md](spec/language-spec.md) | [spec-zh/YONG语言规范.md](spec-zh/YONG语言规范.md) |
+| Spec Addendum v4.3 | [spec/language-spec-addendum-v4.3.md](spec/language-spec-addendum-v4.3.md) | [spec-zh/YONG语言规范补充v4.3.md](spec-zh/YONG语言规范补充v4.3.md) |
 | Compiler Specification | [spec/compiler-spec.md](spec/compiler-spec.md) | [spec-zh/YONG编译器规范.md](spec-zh/YONG编译器规范.md) |
+| Benchmark Methodology | [benchmarks/README.md](benchmarks/README.md) | — |
 
 ## Examples
 
@@ -178,6 +242,16 @@ See the [examples/](examples/) directory:
 - [`todo-app.yong`](examples/todo-app.yong) — Full-stack Todo App (30 tokens)
 - [`snn-mnist.yong`](examples/snn-mnist.yong) — MNIST classifier SNN chip
 - [`auth-api.yong`](examples/auth-api.yong) — Authenticated API with RBAC
+- [`error-handling.yong`](examples/error-handling.yong) — Railway-oriented error handling
+- [`blog-engine.yong`](examples/blog-engine.yong) — Full CMS with posts, comments, tags, auth, and search
+- [`ecommerce-api.yong`](examples/ecommerce-api.yong) — E-commerce with state machines, transactions, and webhooks
+- [`snn-speech.yong`](examples/snn-speech.yong) — SNN speech recognition with reservoir computing
+
+## Tooling
+
+- **VSCode Extension**: [vscode-yong/](vscode-yong/) — Syntax highlighting for `.yong` files
+- **Fine-tuning Dataset**: [datasets/](datasets/) — NL→YONG training pairs for AI models
+- **Conformance Tests**: [tests/](tests/) — 31 golden test cases
 
 ## Contributing
 
