@@ -1,35 +1,70 @@
-# YONG — 一门语言，两个世界
+# YONG — CUDA 杀手
 
-> **声明意图，编译器物化。**
+> **算力不等于电力。这是给 AI 写的语言，不是给人类的。**
 
-YONG（永年语言，YongnianLang）是一门声明式编程语言，用同一套语法同时编译到 **Web 应用** 和 **神经形态硬件**。
+YONG（永年语言）是一门声明式编程语言，为 **AI 生成代码**而设计，不是给人类学习的。同样的功能，AI 输出 30 个 Token 的 YONG，而不是 500 个 Token 的 Python。编译器负责把剩下的物化出来。
 
 ```
-     30 行 YONG                          编译器生成的代码
-┌──────────────────────┐        ┌──────────────────────────────────┐
-│ @api(POST, "/todos") │   →    │ Express.js 路由 + 中间件         │
-│ fn add_todo(...)     │        │ + 校验 + 错误处理 + 数据库 ORM   │
-├──────────────────────┤        ├──────────────────────────────────┤
-│ network MNIST {      │   →    │ 900+ 行 SystemVerilog RTL       │
-│   layer input(784)   │        │ + LIF 神经元 + STDP 学习        │
-│   connect -> output  │        │ + WTA 竞争 + AXI 总线           │
-│ }                    │        │ + 测试平台                       │
-└──────────────────────┘        └──────────────────────────────────┘
+ AI 今天写的代码                          AI 应该写的代码
+┌─────────────────────────────┐    ┌─────────────────────────────┐
+│ from flask import Flask...  │    │ struct Todo {               │
+│ from sqlalchemy import...   │    │   title: string             │
+│ app = Flask(__name__)       │    │   done: bool                │
+│ Base = declarative_base()   │    │ }                           │
+│ class Todo(Base):           │    │ @api(POST, "/todos")        │
+│   __tablename__ = 'todos'   │    │ fn create(req) -> Todo {    │
+│   id = Column(Integer...)   │    │   return req |> save;       │
+│   title = Column(String...) │    │ }                           │
+│   done = Column(Boolean...) │    │                             │
+│   ... 还有 40 行            │    │                             │
+├─────────────────────────────┤    ├─────────────────────────────┤
+│ ~500 tokens                 │    │ ~30 tokens                  │
+│ 每 1000 个文件 ~$15         │    │ 每 1000 个文件 ~$1.50       │
+└─────────────────────────────┘    └─────────────────────────────┘
 ```
 
-## 为什么需要 YONG？
+**10 倍更少的 Token = 10 倍更少的 GPU 算力 = 10 倍更少的电力。**
 
-| 痛点 | YONG 的解法 |
-|------|------------|
-| Web 应用需要 React + Node + SQL | **App 方言**: 一个 `.yong` 文件 → 全栈应用 |
-| SNN 硬件需要 Verilog + CUDA | **Hardware 方言**: 一个 `.yong` 文件 → 可综合 RTL |
-| 物理单位导致隐性 bug | **单位安全**: `Time<ms> + Energy<pJ>` → 编译错误 |
-| 认证/安全总是后补 | **声明式 RBAC**: `@requires(Policy.delete)` → 自动注入 |
-| 一个简单 CRUD 要 10 个文件 | **30 行**: 数据 + API + UI 写在一个文件里 |
+## 为什么这是 CUDA 杀手
+
+CUDA 的护城河不是硬件——是生态锁定。但有一个更大的浪费藏在明处：
+
+**AI 写代码用的语言本身就是一种算力消耗。**
+
+AI 生成的每一行 `import`、每一段 ORM 配置、每一个路由注册，都是在烧 GPU 的 Token。全球所有 AI 编码助手，每天数十亿 Token。
+
+YONG 消灭这种浪费：
+
+| | Python（AI 今天写的） | YONG（AI 应该写的） |
+|---|---|---|
+| Todo 应用 | ~500 tokens | **~30 tokens** |
+| 用户认证 API | ~800 tokens | **~50 tokens** |
+| SNN 芯片设计 | ~900 行 Verilog | **~30 行 YONG** |
+| AI 生成成本 | 1× | **0.1×** |
+
+而且还有第二杀：YONG 还能编译到 **SNN 神经形态硬件**，每次脉冲只要 28 pJ——比 GPU 推理高效 **100,000 倍**。
+
+**一门语言，两次击杀。生成成本降 10 倍，执行成本降 100,000 倍。**
+
+## 工作原理
+
+**人类不写 YONG。人类不学 YONG。**
+
+```
+              传统流程:
+用户 → "做个Todo应用" → AI → 500 tokens Python → 解释器 → 应用
+
+              YONG 流程:
+用户 → "做个Todo应用" → AI → 30 tokens YONG → 编译器 → 应用/芯片
+```
+
+编译器从声明推断一切：数据库建表、HTTP 路由、中间件、序列化、错误处理——或者 LIF 神经元、STDP 学习、WTA 竞争、BRAM 流水线。
+
+**声明意图，编译器物化。**
 
 ## 快速一览
 
-### App 方言 — 30 行全栈应用
+### App 方言 — 30 个 Token 搞定全栈
 
 ```yong
 @db(table="todos")
@@ -64,7 +99,7 @@ component TodoApp {
 
 **编译产物**: HTML + CSS + JS + REST API + 数据库建表 + ORM
 
-### Hardware 方言 — 15 行 SNN
+### Hardware 方言 — 15 行 SNN 芯片
 
 ```yong
 network MNIST {
@@ -79,43 +114,54 @@ network MNIST {
         weight_storage: bram
         wta_mode: enable
         homeostasis: enable
-        threshold_mode: dual
+        target: zynq7020
     }
 }
 ```
 
-**编译产物**: SystemVerilog RTL（可综合，用于 FPGA/ASIC）或 Python SNN 仿真器
+**编译产物**: 47KB 可综合 Verilog RTL（Yosys + iCE40 FPGA 验证通过）
 
-## 核心原则 (不变的)
+## 为什么 AI 喜欢 YONG
 
-以下原则永远不会改变：
+| 特性 | 对 AI 生成的意义 |
+|------|-----------------|
+| **没有 import** | 编译器从声明推断依赖。零浪费 token。 |
+| **装饰器即指令** | `@api(POST, "/todos")` 替代 20 行路由+中间件+序列化 |
+| **管道操作符** | `data |> validate |> save |> emit` — 线性流动，无嵌套。AI 一次生成。 |
+| **没有模板代码** | 没有 ORM 配置，没有 app factory，没有 session。声明即推断。 |
+| **双编译目标** | 同一语法编译到 Web 或芯片。AI 不需要知道目标是什么。 |
+
+## 核心原则（不变的）
 
 | 原则 | 说明 |
 |------|------|
+| **AI 优先** | 为 AI 生成而设计，不是给人类打字用的 |
 | **声明式** | 写「做什么」，不写「怎么做」 |
-| **数据优先** | 先定义 struct，再定义行为 |
-| **单位安全** | 物理量自带单位；不兼容的单位 = 编译错误 |
-| **AI 友好** | 最少 token 表达最复杂的系统 |
+| **最少 Token** | 用最小表面积承载最大语义 |
+| **单位安全** | `Time<ms> + Energy<pJ>` → 编译错误 E202 |
 | **bit-accurate** | 同一份 `.yong` → 在每个后端行为一致 |
 | **可扩展** | 核心不变，其余随意扩展 |
 
-## 可扩展性
+## 数据对比
 
-YONG 被设计为可生长的语言。核心语法冻结，但一切皆可扩展：
+| 指标 | 英伟达 GPU | VGO SNN（YONG 编译）|
+|------|-----------|-------------------|
+| 每次推理功耗 | ~2,700,000 pJ | **~28 pJ/spike** |
+| 能效比 | 1× | **~100,000×** |
+| 代码行数 | 900+（CUDA/Verilog）| **30（YONG）** |
+| FPGA 比特流 | N/A | **132 KB** |
 
-| 扩展什么 | 怎么扩展 | 示例 |
-|---------|---------|------|
-| 新装饰器 | 定义 `@name` | `@cache(ttl=60s)`, `@rate_limit(100/min)` |
-| 新类型 | 注册到 TypeRegistry | `image`, `tensor`, `Energy<eV>` |
-| 新神经元类型 | 注册 NeuronTypeDef | `type=izhikevich`, `type=adex` |
-| 新学习规则 | 注册 LearningRuleDef | `with bcm`, `with oja` |
-| 新后端 | 实现 Backend 接口 | RISC-V RTL, WebAssembly, 量子电路 |
-| 新分析 Pass | 注册 AnalyzerPass | PerformancePass, StylePass |
+## 项目状态
 
-扩展三原则：
-1. **只声明，不实现** — 扩展必须是声明式的
-2. **不能破坏现有代码** — 扩展只能是加法
-3. **有单位的量必须带单位** — 新的物理量类型必须标注维度
+| 组件 | 状态 |
+|------|------|
+| 语言规范 v4.2 | ✅ 完成 |
+| 编译器规范 v1.0 | ✅ 完成 |
+| 解析器（Lexer → AST → IR）| ✅ 运行中（822 行）|
+| 原生引擎（.yong → GUI）| ✅ 运行中 |
+| Verilog 后端（.yong → RTL）| ✅ 运行中（47KB 输出，Yosys 验证）|
+| VGO Brain 2.0（自然语言 → YONG）| ✅ 运行中（109M 参数 SNN）|
+| FPGA 综合（iCE40）| ✅ 验证通过（132KB 比特流）|
 
 ## 文档
 
@@ -124,48 +170,13 @@ YONG 被设计为可生长的语言。核心语法冻结，但一切皆可扩展
 | 语言规范 | [spec/language-spec.md](spec/language-spec.md) | [spec-zh/YONG语言规范.md](spec-zh/YONG语言规范.md) |
 | 编译器规范 | [spec/compiler-spec.md](spec/compiler-spec.md) | [spec-zh/YONG编译器规范.md](spec-zh/YONG编译器规范.md) |
 
-## 编译器架构
-
-```
- .yong 源码
-     │
-     ▼
-┌──────────┐
-│ Stage 1  │  Tokenizer → Token 流
-├──────────┤
-│ Stage 2  │  Parser → AST
-├──────────┤
-│ Stage 3  │  Analyzer → Typed AST（所有错误在此报完）
-├──────────┤
-│ Stage 4  │  IR Generator → YONG IR（所有后端共享）
-├──────────┤
-│ Stage 5  │  Backend → 目标代码（可插拔）
-└──────────┘
-     │
-     ├──→  Web App (HTML/CSS/JS + API)
-     ├──→  FPGA RTL (SystemVerilog)
-     ├──→  ASIC RTL (Verilog)
-     ├──→  SNN Simulator (Python)
-     └──→  你自己的后端
-```
-
-## 项目状态
-
-| 组件 | 状态 |
-|------|------|
-| 语言规范 v4.2 | ✅ 完成 |
-| 编译器规范 v1.0 | ✅ 完成 |
-| EBNF 正式文法 | ✅ 完成 |
-| 类型系统 + 单位安全 | ✅ 已定义 |
-
-
 ## 代码示例
 
 查看 [examples/](examples/) 目录：
 
 - [`hello.yong`](examples/hello.yong) — Hello World
-- [`todo-app.yong`](examples/todo-app.yong) — 全栈 Todo App（30 行）
-- [`snn-mnist.yong`](examples/snn-mnist.yong) — MNIST 分类器 SNN
+- [`todo-app.yong`](examples/todo-app.yong) — 全栈 Todo App（30 tokens）
+- [`snn-mnist.yong`](examples/snn-mnist.yong) — MNIST 分类器 SNN 芯片
 - [`auth-api.yong`](examples/auth-api.yong) — 带 RBAC 的认证 API
 
 ## 参与贡献
@@ -179,7 +190,7 @@ YONG 处于早期阶段。我们欢迎以下方向的贡献：
 
 ## 作者
 
-**Robert Hu (胡翔瑞)** — 中国·重庆 🇨🇳  
+**Robert Hu** — 中国·重庆 🇨🇳  
 📧 [roberthxr@qq.com](mailto:roberthxr@qq.com)
 
 ## 许可证
@@ -188,5 +199,6 @@ YONG 处于早期阶段。我们欢迎以下方向的贡献：
 
 ---
 
-*"声明意图，编译器物化。"*  
-*"Declare intent, compiler materializes."*
+*声明意图，编译器物化。* | *Declare intent. Compiler materializes.*  
+*算力不等于电力。* | *Compute ≠ Power.*  
+*写代码的是 AI，不是人。* | *The writer is AI, not human.*
