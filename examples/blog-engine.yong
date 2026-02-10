@@ -1,0 +1,177 @@
+// YONG Blog Engine — Real-World Example (beyond Todo)
+// Full CMS with posts, comments, tags, auth, and search
+// Demonstrates YONG in a non-trivial, production-like scenario
+
+// --- Data Models ---
+
+@db(table="users")
+struct User {
+    id: uid
+    email: string @unique @validate(email)
+    name: string
+    password: string @hash(bcrypt)
+    role: enum { reader, author, admin } = reader
+    avatar: string? @url
+    created_at: timestamp = now()
+}
+
+@db(table="posts")
+struct Post {
+    id: uid
+    author_id: uid @ref(User)
+    title: string @validate(min=1, max=200)
+    slug: string @unique @derive(title |> slugify)
+    content: text @markdown
+    excerpt: string? @derive(content |> truncate(300))
+    status: enum { draft, published, archived } = draft
+    tags: list[Tag] @many_to_many
+    published_at: timestamp?
+    created_at: timestamp = now()
+    updated_at: timestamp = now() @auto_update
+}
+
+@db(table="comments")
+struct Comment {
+    id: uid
+    post_id: uid @ref(Post)
+    author_id: uid @ref(User)
+    content: text @validate(min=1, max=5000)
+    parent_id: uid? @ref(Comment)  // nested comments
+    created_at: timestamp = now()
+}
+
+@db(table="tags")
+struct Tag {
+    id: uid
+    name: string @unique
+    slug: string @unique @derive(name |> slugify)
+}
+
+// --- Public API ---
+
+@api(GET, "/posts")
+fn list_posts(page: int = 1, per_page: int = 20, tag: string?) -> Paginated<Post> {
+    return db.posts
+        |> where(status == "published")
+        |> where_if(tag, tags.slug == tag)
+        |> order_by(published_at, desc)
+        |> paginate(page, per_page)
+        |> include(author, tags)
+}
+
+@api(GET, "/posts/{slug}")
+fn get_post(slug: string) -> Post {
+    return db.posts.find_by(slug: slug, status: "published")
+        |> include(author, tags, comments.author)
+        |? not_found("Post not found")
+}
+
+@api(GET, "/posts/search")
+fn search_posts(q: string, page: int = 1) -> Paginated<Post> {
+    return db.posts
+        |> full_text_search(q, fields: [title, content])
+        |> where(status == "published")
+        |> paginate(page, 20)
+}
+
+// --- Authenticated API (Author+) ---
+
+@api(POST, "/posts")
+@auth(role: [author, admin])
+fn create_post(req: CreatePostRequest) -> Post {
+    return req
+        |> validate
+        |> merge({ author_id: auth.user.id })
+        |> save
+}
+
+@api(PUT, "/posts/{id}")
+@auth(role: [author, admin], owner: author_id)
+fn update_post(id: uid, req: UpdatePostRequest) -> Post {
+    return db.posts.find(id)
+        |? not_found("Post not found")
+        |> merge(req |> validate)
+        |> save
+}
+
+@api(POST, "/posts/{id}/publish")
+@auth(role: [author, admin], owner: author_id)
+fn publish_post(id: uid) -> Post {
+    return db.posts.find(id)
+        |> merge({ status: "published", published_at: now() })
+        |> save
+        |> emit("post.published")  // event for RSS, notifications, etc.
+}
+
+// --- Comments ---
+
+@api(POST, "/posts/{post_id}/comments")
+@auth
+fn add_comment(post_id: uid, content: string, parent_id: uid?) -> Comment {
+    return { post_id, content, parent_id, author_id: auth.user.id }
+        |> validate
+        |> save
+        |> emit("comment.created")
+}
+
+@api(GET, "/posts/{post_id}/comments")
+fn list_comments(post_id: uid) -> list[Comment] {
+    return db.comments
+        |> where(post_id == post_id, parent_id == null)
+        |> include(author, children.author)  // nested tree
+        |> order_by(created_at, asc)
+}
+
+// --- Admin API ---
+
+@api(DELETE, "/admin/posts/{id}")
+@auth(role: admin)
+fn delete_post(id: uid) -> void {
+    db.posts.find(id) |> delete |> emit("post.deleted")
+}
+
+@api(GET, "/admin/stats")
+@auth(role: admin)
+fn get_stats() -> BlogStats {
+    return {
+        total_posts: db.posts.count(),
+        published_posts: db.posts.count(status == "published"),
+        total_comments: db.comments.count(),
+        total_users: db.users.count(),
+        posts_this_month: db.posts.count(created_at > month_start())
+    }
+}
+
+// --- RSS Feed ---
+
+@api(GET, "/feed.xml", content_type: "application/rss+xml")
+fn rss_feed() -> XML {
+    return db.posts
+        |> where(status == "published")
+        |> order_by(published_at, desc)
+        |> limit(20)
+        |> to_rss(title: "My Blog", link: config.base_url)
+}
+
+// --- Frontend (Optional) ---
+
+@app(route="/")
+component BlogHome {
+    state posts = query(list_posts)
+    state search_query = ""
+
+    view {
+        Header("My Blog")
+        SearchBar(value=search_query, on_search=search_posts)
+        PostGrid(posts) -> |post| {
+            Card {
+                Image(post.author.avatar)
+                Title(post.title, link="/posts/" + post.slug)
+                Text(post.excerpt)
+                TagList(post.tags)
+                Date(post.published_at)
+            }
+        }
+        Pagination(posts.page_info)
+    }
+}
