@@ -1,0 +1,107 @@
+// Authenticated API with RBAC — YongnianLang
+// File: auth-api.yong
+//
+// Demonstrates:
+//   - User authentication (@auth)
+//   - Role-based access control (policy)
+//   - Permission enforcement (@requires)
+//   - Sensitive field protection (@hidden)
+//   - Database transactions (@transaction)
+//   - Event emission (emit)
+
+// ── Data Models ──
+
+@db(table="users")
+@auth(identity)
+struct User {
+    id: uid
+    email: email @unique
+    password_hash: string @hidden
+    role: Role
+    created_at: time
+}
+
+enum Role { admin, editor, viewer }
+
+@db(table="articles")
+struct Article {
+    id: uid
+    title: string
+    content: string
+    author_id: uid
+    published: bool = false
+    created_at: time
+}
+
+// ── Auth Config ──
+
+config auth {
+    provider: jwt
+    secret_env: "JWT_SECRET"
+    token_expiry: 24h
+    refresh_enabled: true
+    password_hash: bcrypt(rounds=12)
+}
+
+// ── Access Policies ──
+
+policy ArticlePolicy {
+    resource: Article
+    subject:  User
+
+    allow read   when resource.published == true
+                   or subject.role in [admin, editor]
+    allow create when subject.role in [admin, editor]
+    allow update when subject.role == admin
+                   or resource.author_id == subject.id
+    allow delete when subject.role == admin
+
+    deny *
+}
+
+// ── API Endpoints ──
+
+@api(GET, "/articles")
+@requires(ArticlePolicy.read)
+fn list_articles() -> list[Article] {
+    return db.articles.all()
+}
+
+@api(POST, "/articles")
+@requires(ArticlePolicy.create)
+fn create_article(title: string, content: string) -> Article {
+    return db.articles.create({
+        title,
+        content,
+        author_id: auth.current_user.id,
+        published: false
+    })
+}
+
+@api(PUT, "/articles/:id/publish")
+@requires(ArticlePolicy.update)
+@transaction
+fn publish_article(id: uid) -> Article {
+    let article = db.articles.get(id)
+    assert(article.content.length > 100, "Article too short to publish")
+
+    let updated = db.articles.update(id, { published: true })
+    emit ArticlePublished(id, auth.current_user.id)
+    return updated
+}
+
+@api(DELETE, "/articles/:id")
+@requires(ArticlePolicy.delete)
+fn delete_article(id: uid) -> void {
+    db.articles.delete(id)
+}
+
+// ── Data Migration ──
+
+@migration(version=2, from=1)
+migrate AddCategoryToArticle {
+    alter_table("articles") {
+        add_column("category", string, default="general")
+        add_index("idx_category", ["category"])
+    }
+}

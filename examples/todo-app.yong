@@ -1,0 +1,56 @@
+// Full-Stack Todo App — YongnianLang
+// File: todo-app.yong
+//
+// This single file generates:
+//   - Database schema (CREATE TABLE)
+//   - REST API (GET/POST/PUT/DELETE)
+//   - Frontend UI (reactive component)
+
+@db(table="todos")
+struct Todo {
+    id: uid
+    text: string
+    done: bool
+    priority: int = 0
+}
+
+@api(GET, "/todos")
+fn list_todos() -> list[Todo] {
+    return db.todos.all()
+}
+
+@api(POST, "/todos")
+fn add_todo(text: string) -> Todo {
+    return db.todos.create({ text, done: false })
+}
+
+@api(PUT, "/todos/:id")
+fn update_todo(id: uid, done: bool) -> Todo {
+    return db.todos.update(id, { done })
+}
+
+@api(DELETE, "/todos/:id")
+fn delete_todo(id: uid) -> void {
+    db.todos.delete(id)
+}
+
+@app(route="/")
+component TodoApp {
+    state todos = query(list_todos)
+    state filter = "all"
+
+    view {
+        Header("My Todos")
+        Input(placeholder="What needs to be done?", on_enter=add_todo)
+
+        Tabs(["all", "active", "completed"], selected=filter)
+
+        List(todos |> filter_by(filter)) -> |todo| {
+            Row {
+                Checkbox(todo.done, on_change=update_todo(todo.id, !todo.done))
+                Text(todo.text, style=todo.done ? "strike" : "normal")
+                Button("×", on_click=delete_todo(todo.id))
+            }
+        }
+    }
+}

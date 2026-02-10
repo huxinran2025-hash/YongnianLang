@@ -1,0 +1,44 @@
+// MNIST SNN Classifier — YongnianLang Hardware Dialect
+// File: snn-mnist.yong
+//
+// This single file compiles to:
+//   - SystemVerilog RTL (synthesizable for FPGA/ASIC)
+//   - Python SNN simulator
+//
+// Network: 784 → 400 → 10
+// Learning: STDP with Winner-Take-All
+// Target accuracy: 85%+ on MNIST
+
+network MNIST {
+    // Input layer: 28×28 = 784 pixels
+    layer input(784);
+
+    // Hidden layer: 400 LIF neurons with STDP learning
+    layer hidden(400, type=lif, threshold=300, leak=1);
+
+    // Output layer: 10 classes (digits 0-9)
+    layer output(10, type=lif, threshold=200, leak=2);
+
+    // Connections with STDP learning
+    connect input -> hidden with stdp(ltp=5, ltd=2, w_min=30, w_max=250);
+    connect hidden -> output with stdp(ltp=10, ltd=4, w_min=30, w_max=250);
+
+    config {
+        // Weight storage: Block RAM for large networks
+        weight_storage: bram
+
+        // Winner-Take-All: only top-K neurons fire
+        wta_mode: enable
+
+        // Homeostasis: auto-balance neuron firing rates
+        homeostasis: enable
+        target_rate: 20
+        revival_threshold: 50
+
+        // Dual threshold: separate training/inference thresholds
+        threshold_mode: dual
+
+        // Energy tracking: count spikes for power estimation
+        energy_tracking: enable
+    }
+}

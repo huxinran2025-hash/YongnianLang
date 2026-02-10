@@ -1,0 +1,7 @@
+// Hello World — YongnianLang
+// File: hello.yong
+
+@app(route="/")
+component Hello {
+    view { Header("Hello, Yongnian!") }
+}
