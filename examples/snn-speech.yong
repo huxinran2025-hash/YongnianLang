@@ -1,0 +1,48 @@
+// YONG SNN Speech Recognition — Beyond MNIST
+// Demonstrates: temporal processing, reservoir computing, multi-layer SNN
+
+network SpeechCommand {
+    // --- Input: Mel Spectrogram (40 bands × 100 timesteps) ---
+    layer input(4000, encoding=rate, time_window=100);
+
+    // --- Reservoir Layer (Liquid State Machine) ---
+    // Recurrent connections capture temporal dynamics
+    layer reservoir(1000, type=lif, threshold=250, leak=3) {
+        recurrent: true
+        connectivity: 0.1    // 10% sparse recurrent connections
+        exc_inh_ratio: 0.8   // 80% excitatory, 20% inhibitory
+    }
+
+    // --- Readout Layers ---
+    layer hidden(200, type=lif, threshold=200, leak=2);
+    layer output(35, type=lif, threshold=150, leak=1);
+    // 35 classes: "yes", "no", "up", "down", "left", "right", ...
+
+    // --- Connections ---
+    connect input -> reservoir with stdp(ltp=3, ltd=1);
+    connect reservoir -> hidden with stdp(ltp=5, ltd=2) {
+        delay: uniform(1, 5)  // axonal delays for temporal coding
+    }
+    connect hidden -> output with stdp(ltp=8, ltd=3);
+
+    // --- Temporal Decoding ---
+    // Output = class with highest spike count in decision window
+    decode output with spike_count(window=20);
+
+    // --- Training ---
+    train {
+        dataset: speech_commands_v2
+        epochs: 50
+        learning_rate: adaptive(start=0.01, decay=0.95)
+        augment: [time_shift(±10%), noise(snr=20dB)]
+    }
+
+    config {
+        weight_storage: bram
+        wta_mode: enable
+        homeostasis: enable
+        power_gating: enable      // shut down silent neurons
+        target: zynq7020
+        clock: 50MHz
+    }
+}

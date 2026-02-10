@@ -1,0 +1,97 @@
+// YONG Error Handling — Railway-Oriented Programming
+// Errors flow through pipes like data. No try/catch needed.
+
+// --- Result Type (built-in) ---
+// Every function returns Result<T, E> implicitly.
+// The pipe operator |> short-circuits on error.
+
+@db(table="orders")
+struct Order {
+    id: uid
+    user_id: uid
+    items: list[OrderItem]
+    total: Money<CNY>
+    status: enum { pending, paid, shipped, delivered, cancelled }
+}
+
+struct OrderItem {
+    product_id: uid
+    quantity: int
+    price: Money<CNY>
+}
+
+// --- Railway-Oriented Pipe ---
+// |> continues on Ok, short-circuits on Err
+// |! handles the error branch
+// |? unwraps or returns early with error
+
+@api(POST, "/orders")
+fn create_order(req: OrderRequest) -> Result<Order, OrderError> {
+    return req
+        |> validate_items        // Err? → stops here, returns validation error
+        |> check_inventory       // Err? → stops here, returns stock error
+        |> calculate_total       // pure function, always succeeds
+        |> apply_discount        // may fail if coupon expired
+        |> save_to_db            // Err? → stops here, returns db error
+        |> send_confirmation     // fire-and-forget, errors logged not thrown
+        |! log_error             // catch-all: log any error from above
+}
+
+// --- Error Types ---
+// Errors are just structs with @error decorator
+
+@error
+struct ValidationError {
+    field: string
+    message: string
+    code: int = 400
+}
+
+@error
+struct StockError {
+    product_id: uid
+    available: int
+    requested: int
+    code: int = 409
+}
+
+@error
+struct DatabaseError {
+    operation: string
+    detail: string
+    code: int = 500
+}
+
+// Union error type
+type OrderError = ValidationError | StockError | DatabaseError
+
+// --- Validation with Pattern Matching ---
+
+fn validate_items(req: OrderRequest) -> Result<OrderRequest, ValidationError> {
+    match req.items {
+        [] => err(ValidationError { field: "items", message: "Cart is empty" })
+        items if items.len() > 100 => err(ValidationError {
+            field: "items",
+            message: "Too many items (max 100)"
+        })
+        _ => ok(req)
+    }
+}
+
+// --- Retry with Backoff ---
+
+@retry(max=3, backoff=exponential, on=DatabaseError)
+fn save_to_db(order: Order) -> Result<Order, DatabaseError> {
+    return db.orders.create(order)
+}
+
+// --- Partial Error Recovery ---
+// |recover converts specific errors to default values
+
+@api(GET, "/orders/{id}/summary")
+fn get_order_summary(id: uid) -> OrderSummary {
+    return db.orders.find(id)
+        |> enrich_with_product_names
+        |recover ProductServiceError => use_cached_names  // fallback to cache
+        |> format_summary
+}
